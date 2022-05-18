@@ -129,40 +129,10 @@ else:
 
 torch.cuda.empty_cache()
 
-cnv = {}
-for i in range(8):
-    x = i*45
-    if i % 2:
-        cnv[x-5] = cnv[x+5] = i
-    else:
-        cnv[(x-10) % 360] = cnv[x] = cnv[(x+10) % 360] = i
-cnv = {k//10: v for k, v in cnv.items()}
-
-for i in range(len(train_labels)):
-    try:
-        train_labels[i] = cnv[train_labels[i].item()]
-    except KeyError:
-        train_labels[i] = 8
-for i in range(len(test_labels)):
-    try:
-        test_labels[i] = cnv[test_labels[i].item()]
-    except KeyError:
-        test_labels[i] = 8
-
-eqs = (train_labels != 8)
-idx8 = torch.where(eqs.logical_not())[0][torch.randperm(10_000)]
-train_labels = torch.cat((train_labels[eqs], train_labels[idx8]))
-train_features = torch.cat((train_features[eqs], train_features[idx8]))
-
-eqs = (test_labels != 8)
-idx8 = torch.where(eqs.logical_not())[0][torch.randperm(475)]
-test_labels = torch.cat((test_labels[eqs], test_labels[idx8]))
-test_features = torch.cat((test_features[eqs], test_features[idx8]))
-
 print(torch.unique(train_labels, return_counts=True))
 print(torch.unique(test_labels, return_counts=True))
 
-num_classes = 9
+num_classes = 36
 
 
 class EncodedDataset(Dataset):
