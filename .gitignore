@@ -1,0 +1,6 @@
+data/
+.ipynb_checkpoints/
+*.pth
+car_*
+data/
+wandb/

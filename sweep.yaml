@@ -1,0 +1,33 @@
+project: clip_cls_9
+program: clip_train.py
+method: bayes
+metric:
+    name: accuracy
+    goal: maximize
+parameters:
+    clip_type:
+        values: ["ViT-B/32", "RN50"]
+    anneal_strategy:
+        values: ['cos', 'linear']
+    max_lr:
+        max: 0.002
+        min: 0.0001
+        distribution: log_uniform_values
+    weight_decay:
+        max: 0.01
+        min: 0.00005
+        distribution: log_uniform_values
+    pct_start:
+        values: [0.01, 0.05, 0.1, 0.2, 0.3]
+    batch_size:
+        values: [4096, 2048, 1024, 512]
+    hid_dim:
+        values: [128, 256, 512]
+    dropout:
+        max: 0.4
+        min: 0.0
+        distribution: uniform
+    epochs:
+        values: [100, 500, 1000, 2500]
+    activation:
+        values: ['q_gelu', 'relu', 'elu', 'leaky_relu']
