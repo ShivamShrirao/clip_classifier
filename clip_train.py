@@ -64,9 +64,10 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         im_path = self.im_paths[idx]
-        img = cv2.imread(im_path, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(im_path, cv2.IMREAD_COLOR)[:,:,::-1]
         img = cv2.resize(img, (224, 224))
         label = self.label_dict[im_path.split(os.sep)[-2]]
+        img = img.transpose(2,0,1)
         return img, label
 
 
@@ -99,8 +100,8 @@ def get_features(dataloader):
         for images, labels in tqdm(dataloader):
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
-            images = images.unsqueeze(1)
-            images = images.repeat(1, 3, 1, 1)
+            # images = images.unsqueeze(1)
+            # images = images.repeat(1, 3, 1, 1)
             images = (images - mean).div_(std)
             features = clip_model.encode_image(images)
             all_features.append(features)
@@ -132,7 +133,7 @@ torch.cuda.empty_cache()
 print(torch.unique(train_labels, return_counts=True))
 print(torch.unique(test_labels, return_counts=True))
 
-num_classes = 36
+num_classes = 9
 
 
 class EncodedDataset(Dataset):

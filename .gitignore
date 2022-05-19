@@ -4,3 +4,4 @@ data/
 car_*
 data/
 wandb/
+trace*
