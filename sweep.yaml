@@ -1,4 +1,4 @@
-project: clip_cls_9
+project: clip_cls_36
 program: clip_train.py
 method: bayes
 metric:

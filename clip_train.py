@@ -19,18 +19,18 @@ import wandb
 
 CONFIG = dict(
     clip_type='ViT-B/32',
-    epochs=1000,
-    max_lr=1e-3,
-    pct_start=0.1,
-    anneal_strategy='linear',
-    weight_decay=2e-4,
+    epochs=2500,
+    max_lr=0.001745,
+    pct_start=0.2,
+    anneal_strategy='cos',
+    weight_decay=0.0002677,
     batch_size=4096,
-    dropout=0.25,
+    dropout=0.3698,
     hid_dim=512,
     activation='relu'
 )
 
-wandb.init(project="clip_cls_9", config=CONFIG)
+wandb.init(project="clip_cls_36", config=CONFIG)
 CONFIG = wandb.config
 print(CONFIG)
 
@@ -56,7 +56,7 @@ DATA_DIR = "data/labeled_ola/"
 class ImageDataset(Dataset):
     def __init__(self, root_dir):
         self.im_paths = glob(os.path.join(root_dir, "*", "*"))
-        self.classes = os.listdir(root_dir)
+        self.classes = sorted(os.listdir(root_dir), key=lambda x: int(x))
         self.label_dict = {c: i for i, c in enumerate(self.classes)}
 
     def __len__(self):
@@ -64,15 +64,15 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         im_path = self.im_paths[idx]
-        img = cv2.imread(im_path, cv2.IMREAD_COLOR)[:,:,::-1]
+        img = cv2.imread(im_path, cv2.IMREAD_GRAYSCALE)
         img = cv2.resize(img, (224, 224))
         label = self.label_dict[im_path.split(os.sep)[-2]]
-        img = img.transpose(2,0,1)
         return img, label
 
 
 def load_split_train_test(datadir, valid_size=.125):
     train_data = ImageDataset(datadir)
+    print(train_data.label_dict)
     test_data = ImageDataset(datadir)
     indices = list(range(len(train_data)))
     split = int(np.floor(valid_size * len(train_data)))
@@ -100,12 +100,12 @@ def get_features(dataloader):
         for images, labels in tqdm(dataloader):
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
-            # images = images.unsqueeze(1)
-            # images = images.repeat(1, 3, 1, 1)
+            images = images.unsqueeze(1)
+            images = images.repeat(1, 3, 1, 1)
             images = (images - mean).div_(std)
             features = clip_model.encode_image(images)
-            all_features.append(features)
-            all_labels.append(labels)
+            all_features.append(features.detach_())
+            all_labels.append(labels.detach_())
     return torch.cat(all_features), torch.cat(all_labels)
 
 
@@ -130,10 +130,42 @@ else:
 
 torch.cuda.empty_cache()
 
+# cnv = {}
+# for i in range(8):
+#     x = i*45
+#     if i % 2:
+#         cnv[x-5] = cnv[x+5] = i
+#     else:
+#         cnv[(x-10) % 360] = cnv[x] = cnv[(x+10) % 360] = i
+# cnv = {k//10: v for k, v in cnv.items()}
+
+# print(cnv)
+
+# for i in range(len(train_labels)):
+#     try:
+#         train_labels[i] = cnv[train_labels[i].item()]
+#     except KeyError:
+#         train_labels[i] = 8
+# for i in range(len(test_labels)):
+#     try:
+#         test_labels[i] = cnv[test_labels[i].item()]
+#     except KeyError:
+#         test_labels[i] = 8
+
+# eqs = (train_labels != 8)
+# idx8 = torch.where(eqs.logical_not())[0][torch.randperm(10_000)]
+# train_labels = torch.cat((train_labels[eqs], train_labels[idx8]))
+# train_features = torch.cat((train_features[eqs], train_features[idx8]))
+
+# eqs = (test_labels != 8)
+# idx8 = torch.where(eqs.logical_not())[0][torch.randperm(475)]
+# test_labels = torch.cat((test_labels[eqs], test_labels[idx8]))
+# test_features = torch.cat((test_features[eqs], test_features[idx8]))
+
 print(torch.unique(train_labels, return_counts=True))
 print(torch.unique(test_labels, return_counts=True))
 
-num_classes = 9
+num_classes = 36
 
 
 class EncodedDataset(Dataset):
@@ -177,7 +209,6 @@ cls_head = nn.Sequential(
     nn.Linear(CONFIG["hid_dim"], num_classes)
 ).to(device).train()
 
-global_accuracy = 0
 
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(cls_head.parameters(), lr=CONFIG["max_lr"], weight_decay=CONFIG["weight_decay"])
@@ -193,7 +224,7 @@ scheduler = optim.lr_scheduler.OneCycleLR(optimizer,
 wandb.define_metric("train_loss", summary="min")
 wandb.define_metric("test_loss", summary="min")
 wandb.define_metric("accuracy", summary="max")
-
+global_accuracy = 0
 
 for epoch in range(1, CONFIG["epochs"]+1):
     cls_head.train()
